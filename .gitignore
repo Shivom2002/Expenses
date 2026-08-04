@@ -4,6 +4,8 @@ DerivedData/
 xcuserdata/
 .swiftpm/
 **/.build/
+.venv/
+__pycache__/
 
 # Backend secrets and persistent local data
 backend/.env
