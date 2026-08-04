@@ -19,8 +19,14 @@ class FakePlaid:
     async def close(self) -> None:
         pass
 
-    async def create_link_token(self, client_user_id: str):
-        return {"link_token": f"link-{client_user_id}", "expiration": "2030-01-01T00:00:00Z"}
+    async def create_link_token(self, client_user_id: str, presentation: str):
+        result = {"link_token": f"link-{client_user_id}", "expiration": "2030-01-01T00:00:00Z"}
+        if presentation == "hosted":
+            result["hosted_link_url"] = "https://secure.plaid.test/hosted-link"
+        return result
+
+    async def link_token_get(self, link_token: str):
+        return {"results": {"item_add_results": []}}
 
     async def exchange_public_token(self, public_token: str):
         return {"access_token": "access-token", "item_id": "item-123"}
@@ -49,7 +55,8 @@ def client(tmp_path: Path) -> TestClient:
     settings = Settings(
         database_path=tmp_path / "expenses.sqlite3", plaid_client_id="client", plaid_secret="secret",
         plaid_environment="sandbox", token_encryption_key=Fernet.generate_key().decode(),
-        api_bearer_token="test-token", plaid_webhook_url=None, webhook_secret="webhook-secret",
+        api_bearer_token="test-token", plaid_webhook_url=None, plaid_redirect_uri=None,
+        webhook_secret="webhook-secret",
     )
     return TestClient(create_app(settings, FakePlaid()))
 
@@ -68,6 +75,17 @@ def test_creates_link_token_server_side(tmp_path: Path) -> None:
         response = api.post("/plaid/link-token", headers=headers(), json={"client_user_id": "personal-user"})
         assert response.status_code == 200
         assert response.json()["link_token"] == "link-personal-user"
+
+
+def test_creates_hosted_link_for_macos(tmp_path: Path) -> None:
+    with client(tmp_path) as api:
+        response = api.post(
+            "/plaid/link-token",
+            headers=headers(),
+            json={"client_user_id": "personal-user", "presentation": "hosted"},
+        )
+        assert response.status_code == 200
+        assert response.json()["hosted_link_url"] == "https://secure.plaid.test/hosted-link"
 
 
 def test_exchange_sync_list_and_override_category(tmp_path: Path) -> None:

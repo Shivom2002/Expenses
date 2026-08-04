@@ -81,6 +81,7 @@
 			name = "Expenses iOS";
 			packageProductDependencies = (
 				EA0000100000000000000010 /* ExpensesCore */,
+				EA0000200000000000000020 /* LinkKit */,
 			);
 			productName = "Expenses iOS";
 			productReference = 7DE6B5463021C4FA0040E8CD /* Expenses iOS.app */;
@@ -141,6 +142,7 @@
 			projectDirPath = "";
 			packageReferences = (
 				EA0000090000000000000009 /* XCLocalSwiftPackageReference "Packages/ExpensesCore" */,
+				EA0000190000000000000019 /* XCRemoteSwiftPackageReference "plaid-link-ios-spm" */,
 			);
 			projectRoot = "";
 			targets = (
@@ -191,6 +193,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		EA0000190000000000000019 /* XCRemoteSwiftPackageReference "plaid-link-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/plaid/plaid-link-ios-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		EA0000100000000000000010 /* ExpensesCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -201,6 +214,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = EA0000090000000000000009 /* XCLocalSwiftPackageReference "Packages/ExpensesCore" */;
 			productName = ExpensesCore;
+		};
+		EA0000200000000000000020 /* LinkKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EA0000190000000000000019 /* XCRemoteSwiftPackageReference "plaid-link-ios-spm" */;
+			productName = LinkKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 

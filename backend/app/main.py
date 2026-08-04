@@ -66,7 +66,14 @@ class Service:
         return self.cipher.decrypt(encrypted.encode()).decode()
 
     async def exchange_public_token(self, request: PublicTokenExchangeRequest) -> int:
-        exchange = await self.plaid.exchange_public_token(request.public_token)
+        return await self.exchange(
+            public_token=request.public_token,
+            institution_name=request.institution_name,
+            institution_id=request.institution_id,
+        )
+
+    async def exchange(self, public_token: str, institution_name: str, institution_id: str | None = None) -> int:
+        exchange = await self.plaid.exchange_public_token(public_token)
         encrypted_token = self.cipher.encrypt(exchange["access_token"].encode()).decode()
         with self.database.connect() as connection:
             connection.execute(
@@ -79,13 +86,26 @@ class Service:
                     institution_name = excluded.institution_name,
                     updated_at = CURRENT_TIMESTAMP
                 """,
-                (exchange["item_id"], encrypted_token, request.institution_id, request.institution_name),
+                (exchange["item_id"], encrypted_token, institution_id, institution_name),
             )
             item_id = connection.execute(
                 "SELECT id FROM plaid_items WHERE plaid_item_id = ?", (exchange["item_id"],)
             ).fetchone()["id"]
         await self.refresh_accounts(item_id, exchange["access_token"])
         return item_id
+
+    async def complete_hosted_link(self, link_token: str, public_tokens: list[str]) -> None:
+        session = await self.plaid.link_token_get(link_token)
+        results = session.get("results", {}).get("item_add_results", [])
+        for index, public_token in enumerate(public_tokens):
+            metadata = results[index].get("metadata", {}) if index < len(results) else {}
+            institution = metadata.get("institution") or {}
+            item_id = await self.exchange(
+                public_token,
+                institution.get("name") or "Connected Institution",
+                institution.get("institution_id"),
+            )
+            await self.sync_all(item_id)
 
     async def refresh_accounts(self, item_id: int, access_token: str) -> None:
         accounts = await self.plaid.accounts(access_token)
@@ -230,10 +250,22 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
     @app.post("/plaid/link-token", response_model=LinkTokenResponse, dependencies=[Depends(require_api_token)])
     async def create_link_token(request: LinkTokenRequest) -> LinkTokenResponse:
         try:
-            token = await plaid.create_link_token(request.client_user_id)
+            token = await plaid.create_link_token(request.client_user_id, request.presentation)
         except PlaidAPIError as error:
             raise HTTPException(status_code=502, detail="Unable to create Plaid Link token") from error
-        return LinkTokenResponse(link_token=token["link_token"], expiration=token["expiration"])
+        if request.presentation == "hosted":
+            if not token.get("hosted_link_url"):
+                raise HTTPException(status_code=502, detail="Plaid did not create a Hosted Link URL")
+            with database.connect() as connection:
+                connection.execute(
+                    "INSERT OR REPLACE INTO link_sessions (link_token, presentation) VALUES (?, ?)",
+                    (token["link_token"], request.presentation),
+                )
+        return LinkTokenResponse(
+            link_token=token["link_token"],
+            expiration=token["expiration"],
+            hosted_link_url=token.get("hosted_link_url"),
+        )
 
     @app.post("/plaid/exchange-public-token", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_api_token)])
     async def exchange_public_token(request: PublicTokenExchangeRequest) -> dict[str, str]:
@@ -340,6 +372,19 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
         if not settings.webhook_secret or token is None or not hmac.compare_digest(token, settings.webhook_secret):
             raise HTTPException(status_code=401, detail="Unauthorized")
         payload = await request.json()
+        if payload.get("webhook_type") == "LINK" and payload.get("webhook_code") == "SESSION_FINISHED":
+            if payload.get("status") != "SUCCESS":
+                return {"status": "ignored"}
+            link_token = payload.get("link_token")
+            public_tokens = payload.get("public_tokens") or []
+            with database.connect() as connection:
+                row = connection.execute(
+                    "SELECT id FROM link_sessions WHERE link_token = ?", (link_token,)
+                ).fetchone()
+            if row is None:
+                return {"status": "unknown_link_session"}
+            background_tasks.add_task(service.complete_hosted_link, link_token, public_tokens)
+            return {"status": "accepted"}
         if payload.get("webhook_type") != "TRANSACTIONS":
             return {"status": "ignored"}
         if payload.get("webhook_code") not in {"SYNC_UPDATES_AVAILABLE", "INITIAL_UPDATE", "HISTORICAL_UPDATE"}:

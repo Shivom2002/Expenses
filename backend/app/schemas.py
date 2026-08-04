@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
 class LinkTokenRequest(BaseModel):
     client_user_id: str = Field(default="personal-user", min_length=1, max_length=128)
+    presentation: Literal["native", "hosted"] = "native"
 
 
 class LinkTokenResponse(BaseModel):
     link_token: str
     expiration: str
+    hosted_link_url: str | None = None
 
 
 class PublicTokenExchangeRequest(BaseModel):

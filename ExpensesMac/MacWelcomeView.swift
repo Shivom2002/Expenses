@@ -8,7 +8,10 @@ struct MacWelcomeView: View {
         ContentUnavailableView {
             Label("Your financial picture, in one place", systemImage: "chart.line.uptrend.xyaxis")
         } description: {
-            Text("Expenses is ready for its secure backend connection.")
+            VStack(spacing: 16) {
+                Text("Expenses is ready for its secure backend connection.")
+                HostedLinkButton(apiBaseURL: apiBaseURL)
+            }
         }
     }
 }

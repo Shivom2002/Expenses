@@ -14,6 +14,7 @@ class Settings:
     token_encryption_key: str
     api_bearer_token: str
     plaid_webhook_url: str | None
+    plaid_redirect_uri: str | None
     webhook_secret: str | None
 
     @property
@@ -44,5 +45,6 @@ class Settings:
             token_encryption_key=required("TOKEN_ENCRYPTION_KEY"),
             api_bearer_token=required("API_BEARER_TOKEN"),
             plaid_webhook_url=os.environ.get("PLAID_WEBHOOK_URL") or None,
+            plaid_redirect_uri=os.environ.get("PLAID_REDIRECT_URI") or None,
             webhook_secret=os.environ.get("WEBHOOK_SECRET") or None,
         )

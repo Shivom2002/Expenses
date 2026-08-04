@@ -37,7 +37,7 @@ class PlaidClient:
             raise PlaidAPIError(data.get("error_message", "Plaid request failed"))
         return data
 
-    async def create_link_token(self, client_user_id: str) -> dict[str, Any]:
+    async def create_link_token(self, client_user_id: str, presentation: str) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "client_name": "Expenses",
             "country_codes": ["US"],
@@ -47,10 +47,20 @@ class PlaidClient:
         }
         if self.settings.plaid_webhook_url:
             payload["webhook"] = self.settings.plaid_webhook_url
+        if self.settings.plaid_redirect_uri:
+            payload["redirect_uri"] = self.settings.plaid_redirect_uri
+        if presentation == "hosted":
+            payload["hosted_link"] = {
+                "is_mobile_app": True,
+                "completion_redirect_uri": "expenses://hosted-link-complete",
+            }
         return await self.post("/link/token/create", payload)
 
     async def exchange_public_token(self, public_token: str) -> dict[str, Any]:
         return await self.post("/item/public_token/exchange", {"public_token": public_token})
+
+    async def link_token_get(self, link_token: str) -> dict[str, Any]:
+        return await self.post("/link/token/get", {"link_token": link_token})
 
     async def accounts(self, access_token: str) -> list[dict[str, Any]]:
         return (await self.post("/accounts/get", {"access_token": access_token}))["accounts"]

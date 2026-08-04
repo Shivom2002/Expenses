@@ -71,6 +71,12 @@ public struct KeychainBearerTokenProvider: BearerTokenProviding {
 }
 
 public protocol ExpensesAPI: Sendable {
+    func createLinkToken(presentation: LinkPresentation) async throws -> RemoteLinkToken
+    func exchangePublicToken(
+        _ publicToken: String,
+        institutionName: String,
+        institutionID: String?
+    ) async throws
     func accounts() async throws -> [RemoteAccount]
     func transactions() async throws -> [RemoteTransaction]
     func sync() async throws -> RemoteSyncResult
@@ -90,6 +96,30 @@ public actor ExpensesAPIClient: ExpensesAPI {
         self.baseURL = baseURL
         self.tokenProvider = tokenProvider
         self.session = session
+    }
+
+    public func createLinkToken(presentation: LinkPresentation) async throws -> RemoteLinkToken {
+        try await send(
+            path: "plaid/link-token",
+            method: "POST",
+            body: LinkTokenRequest(presentation: presentation.rawValue)
+        )
+    }
+
+    public func exchangePublicToken(
+        _ publicToken: String,
+        institutionName: String,
+        institutionID: String?
+    ) async throws {
+        let _: EmptyResponse = try await send(
+            path: "plaid/exchange-public-token",
+            method: "POST",
+            body: PublicTokenExchangeRequest(
+                publicToken: publicToken,
+                institutionName: institutionName,
+                institutionID: institutionID
+            )
+        )
     }
 
     public func accounts() async throws -> [RemoteAccount] {
@@ -159,6 +189,41 @@ public actor ExpensesAPIClient: ExpensesAPI {
 
 private struct CategoryOverrideRequest: Encodable {
     let category: String
+}
+
+private struct LinkTokenRequest: Encodable {
+    let presentation: String
+}
+
+private struct PublicTokenExchangeRequest: Encodable {
+    let publicToken: String
+    let institutionName: String
+    let institutionID: String?
+
+    enum CodingKeys: String, CodingKey {
+        case publicToken = "public_token"
+        case institutionName = "institution_name"
+        case institutionID = "institution_id"
+    }
+}
+
+private struct EmptyResponse: Decodable {}
+
+public enum LinkPresentation: String, Sendable {
+    case native
+    case hosted
+}
+
+public struct RemoteLinkToken: Codable, Sendable {
+    public let linkToken: String
+    public let expiration: String
+    public let hostedLinkURL: URL?
+
+    enum CodingKeys: String, CodingKey {
+        case linkToken = "link_token"
+        case expiration
+        case hostedLinkURL = "hosted_link_url"
+    }
 }
 
 public struct RemoteAccount: Codable, Sendable, Identifiable {

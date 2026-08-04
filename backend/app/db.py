@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS accounts (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS link_sessions (
+    id INTEGER PRIMARY KEY,
+    link_token TEXT NOT NULL UNIQUE,
+    presentation TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY,
     plaid_transaction_id TEXT NOT NULL UNIQUE,

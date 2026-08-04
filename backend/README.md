@@ -17,6 +17,8 @@ The FastAPI service is the only component that talks to Plaid. It holds the Plai
 
 After the iOS Link flow returns a public token, post it to /plaid/exchange-public-token with the selected institution's name and ID. The service then stores only the encrypted access token and begins an incremental /transactions/sync stream.
 
+For OAuth institutions, set PLAID_REDIRECT_URI to an HTTPS Universal Link that is registered in the Plaid Dashboard and associated with the iOS app. The sample app intentionally leaves this deployment-specific value unset.
+
 ## Fly.io deployment
 
 From backend/, choose a unique app name in fly.toml, then:

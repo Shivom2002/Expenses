@@ -15,7 +15,10 @@ struct ContentView: View {
         ContentUnavailableView {
             Label("Your financial picture, in one place", systemImage: "chart.line.uptrend.xyaxis")
         } description: {
-            Text("Expenses is ready for its secure backend connection at \(apiBaseURL.host ?? "localhost").")
+            VStack(spacing: 16) {
+                Text("Expenses is ready for its secure backend connection at \(apiBaseURL.host ?? "localhost").")
+                PlaidLinkButton(apiBaseURL: apiBaseURL)
+            }
         }
     }
 }
