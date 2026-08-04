@@ -6,27 +6,15 @@
 //
 
 import SwiftUI
-import SwiftData
+import ExpensesCore
 
 @main
 struct ExpensesApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    private let environment = AppEnvironment.development
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(apiBaseURL: environment.apiBaseURL)
         }
-        .modelContainer(sharedModelContainer)
     }
 }

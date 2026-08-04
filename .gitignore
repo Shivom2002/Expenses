@@ -1,0 +1,10 @@
+.DS_Store
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+**/.build/
+
+# Backend secrets and persistent local data
+backend/.env
+backend/data/
