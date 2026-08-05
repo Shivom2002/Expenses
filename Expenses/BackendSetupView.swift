@@ -48,6 +48,25 @@ struct BackendSetupView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Bank accounts") {
+                    if let apiBaseURL = normalizedURL,
+                       !bearerToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        PlaidLinkButton(apiBaseURL: apiBaseURL) {
+                            let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
+                            await store.refresh(modelContext: modelContext)
+                        }
+                        .id(apiBaseURL.absoluteString)
+                    } else {
+                        Text("Save your backend connection and app access token before linking an account.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text("Add another checking, savings, credit-card, or bank account through Plaid Link.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section {
                     Button("Save connection") {
                         saveConnection()

@@ -4,15 +4,12 @@
 //
 
 import Charts
-import SwiftData
 import SwiftUI
 import ExpensesCore
 
 struct CashFlowDashboard: View {
     let transactions: [ExpensesCore.Transaction]
     let apiBaseURL: URL
-
-    @Environment(\.modelContext) private var modelContext
 
     private let calendar = Calendar.current
 
@@ -37,10 +34,6 @@ struct CashFlowDashboard: View {
                 chartCard
                 summaryCard
                 categoryCard
-
-                if transactions.isEmpty {
-                    connectAccountCard
-                }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 28)
@@ -180,26 +173,6 @@ struct CashFlowDashboard: View {
         }
         .padding(20)
         .background(.background, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-    }
-
-    private var connectAccountCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Your dashboard is ready", systemImage: "checkmark.circle.fill")
-                .font(.headline)
-                .foregroundStyle(Color.expensesGreen)
-            Text("Connect a bank account once the app has been pointed at your deployed backend. Your real transactions will replace these empty summaries automatically.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            PlaidLinkButton(apiBaseURL: apiBaseURL) {
-                let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
-                await store.refresh(modelContext: modelContext)
-            }
-            .id(apiBaseURL.absoluteString)
-                .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(Color.expensesGreen.opacity(0.10), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 
     private var categoryTotals: [CategoryTotal] {
