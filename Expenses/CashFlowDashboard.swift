@@ -12,6 +12,13 @@ struct CashFlowDashboard: View {
     let apiBaseURL: URL
 
     private let calendar = Calendar.current
+    @State private var selectedSummaryMonth = Calendar.current.date(
+        from: Calendar.current.dateComponents([.year, .month], from: Date())
+    ) ?? Date()
+
+    private var currentMonthStart: Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
+    }
 
     private var currentMonth: MonthCashFlow {
         cashFlow(for: Date())
@@ -24,9 +31,12 @@ struct CashFlowDashboard: View {
         }
     }
 
-    private var totalIncome: Double { currentMonth.income }
-    private var totalExpenses: Double { currentMonth.expenses }
-    private var savings: Double { totalIncome - totalExpenses }
+    private var summaryMonths: [MonthCashFlow] {
+        (0 ..< 12).compactMap { offset in
+            guard let month = calendar.date(byAdding: .month, value: -offset, to: currentMonthStart) else { return nil }
+            return cashFlow(for: month)
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -99,29 +109,41 @@ struct CashFlowDashboard: View {
     }
 
     private var summaryCard: some View {
+        TabView(selection: $selectedSummaryMonth) {
+            ForEach(summaryMonths.reversed()) { month in
+                summaryPage(for: month)
+                    .tag(month.date)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .frame(height: 244)
+        .accessibilityLabel("Swipe between monthly cash flow summaries")
+    }
+
+    private func summaryPage(for month: MonthCashFlow) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(currentMonth.date.formatted(.dateTime.month(.wide).year()))
+            Text(month.date.formatted(.dateTime.month(.wide).year()))
                 .font(.title2.bold())
                 .padding(.bottom, 16)
 
             NavigationLink {
-                TransactionListView(transactions: transactions, initialFilter: .income)
+                TransactionListView(transactions: transactions, initialFilter: .income, month: month.date)
             } label: {
-                CashFlowMetric(title: "Income", amount: totalIncome, tint: .expensesGreen, symbol: "arrow.down.left", isInteractive: true)
+                CashFlowMetric(title: "Income", amount: month.income, tint: .expensesGreen, symbol: "arrow.down.left", isInteractive: true)
             }
             .buttonStyle(.plain)
             Divider().padding(.leading, 31)
             NavigationLink {
-                TransactionListView(transactions: transactions, initialFilter: .expenses)
+                TransactionListView(transactions: transactions, initialFilter: .expenses, month: month.date)
             } label: {
-                CashFlowMetric(title: "Expenses", amount: totalExpenses, tint: .expensesRed, symbol: "arrow.up.right", isInteractive: true)
+                CashFlowMetric(title: "Expenses", amount: month.expenses, tint: .expensesRed, symbol: "arrow.up.right", isInteractive: true)
             }
             .buttonStyle(.plain)
             Divider().padding(.leading, 31)
             NavigationLink {
-                TransactionListView(transactions: transactions, initialFilter: .savings)
+                TransactionListView(transactions: transactions, initialFilter: .savings, month: month.date)
             } label: {
-                CashFlowMetric(title: "Savings", amount: savings, tint: .primary, symbol: "circle", isInteractive: true)
+                CashFlowMetric(title: "Savings", amount: month.savings, tint: .primary, symbol: "circle", isInteractive: true)
             }
             .buttonStyle(.plain)
         }
@@ -135,7 +157,7 @@ struct CashFlowDashboard: View {
                 Text("Spending this month")
                     .font(.title3.bold())
                 Spacer()
-                Text(totalExpenses, format: .currency(code: "USD"))
+                Text(currentMonth.expenses, format: .currency(code: "USD"))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
             }

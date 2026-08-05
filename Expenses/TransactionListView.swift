@@ -23,13 +23,14 @@ enum TransactionFilter: Hashable {
         }
     }
 
-    var summary: String {
-        switch self {
-        case .all: "Every transaction across your connected accounts."
-        case .income: "Money received across your connected accounts."
-        case .expenses: "Money spent across your connected accounts."
-        case .savings: "Money in and out that determines your net savings."
-        case let .category(name): "Every transaction categorized as \(name)."
+    func summary(month: Date? = nil) -> String {
+        let period = month.map { $0.formatted(.dateTime.month(.wide).year()) }
+        return switch self {
+        case .all: period.map { "Every transaction in \($0)." } ?? "Every transaction across your connected accounts."
+        case .income: period.map { "Money received in \($0)." } ?? "Money received across your connected accounts."
+        case .expenses: period.map { "Money spent in \($0)." } ?? "Money spent across your connected accounts."
+        case .savings: period.map { "Money in and out that determines net savings in \($0)." } ?? "Money in and out that determines your net savings."
+        case let .category(name): period.map { "Transactions categorized as \(name) in \($0)." } ?? "Every transaction categorized as \(name)."
         }
     }
 
@@ -49,18 +50,24 @@ enum TransactionFilter: Hashable {
 
 struct TransactionListView: View {
     let transactions: [ExpensesCore.Transaction]
+    let month: Date?
 
     @State private var selectedFilter: TransactionFilter
     @State private var searchText = ""
 
-    init(transactions: [ExpensesCore.Transaction], initialFilter: TransactionFilter = .all) {
+    init(transactions: [ExpensesCore.Transaction], initialFilter: TransactionFilter = .all, month: Date? = nil) {
         self.transactions = transactions
+        self.month = month
         _selectedFilter = State(initialValue: initialFilter)
     }
 
     private var filteredTransactions: [ExpensesCore.Transaction] {
         transactions
             .filter(selectedFilter.matches)
+            .filter { transaction in
+                guard let month else { return true }
+                return Calendar.current.isDate(transaction.date, equalTo: month, toGranularity: .month)
+            }
             .filter { transaction in
                 guard !searchText.isEmpty else { return true }
                 return transaction.name.localizedCaseInsensitiveContains(searchText)
@@ -87,7 +94,7 @@ struct TransactionListView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(selectedFilter.title)
                         .font(.title3.bold())
-                    Text(selectedFilter.summary)
+                    Text(selectedFilter.summary(month: month))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
