@@ -2,27 +2,27 @@
 //  ContentView.swift
 //  Expenses
 //
-//  Created by Shivom Dhamija on 8/3/26.
-//
 
+import SwiftData
 import SwiftUI
 import ExpensesCore
 
 struct ContentView: View {
     let apiBaseURL: URL
 
+    @Query(sort: \ExpensesCore.Transaction.date, order: .reverse) private var transactions: [ExpensesCore.Transaction]
+
     var body: some View {
-        ContentUnavailableView {
-            Label("Your financial picture, in one place", systemImage: "chart.line.uptrend.xyaxis")
-        } description: {
-            VStack(spacing: 16) {
-                Text("Expenses is ready for its secure backend connection at \(apiBaseURL.host ?? "localhost").")
-                PlaidLinkButton(apiBaseURL: apiBaseURL)
-            }
+        NavigationStack {
+            CashFlowDashboard(transactions: transactions, apiBaseURL: apiBaseURL)
+                .navigationTitle("Cash Flow")
+                .navigationBarTitleDisplayMode(.large)
         }
+        .tint(Color.expensesGreen)
     }
 }
 
 #Preview {
     ContentView(apiBaseURL: AppEnvironment.development.apiBaseURL)
+        .modelContainer(for: [Account.self, Transaction.self, Category.self, RecurringItem.self], inMemory: true)
 }
