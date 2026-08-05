@@ -30,6 +30,20 @@ public final class FinanceDataStore {
         }
     }
 
+    public func clearSyncedData(modelContext: ModelContext) async throws {
+        try await api.clearData()
+
+        let transactions = try modelContext.fetch(FetchDescriptor<Transaction>())
+        for transaction in transactions {
+            modelContext.delete(transaction)
+        }
+        let accounts = try modelContext.fetch(FetchDescriptor<Account>())
+        for account in accounts {
+            modelContext.delete(account)
+        }
+        try modelContext.save()
+    }
+
     public func apply(
         accounts remoteAccounts: [RemoteAccount],
         transactions remoteTransactions: [RemoteTransaction],

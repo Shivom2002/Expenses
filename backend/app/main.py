@@ -367,6 +367,14 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
         except PlaidAPIError as error:
             raise HTTPException(status_code=502, detail="Unable to sync transactions") from error
 
+    @app.delete("/data", dependencies=[Depends(require_api_token)])
+    async def clear_data() -> dict[str, str]:
+        """Remove locally stored Items, accounts, and transactions before an environment change."""
+        with database.connect() as connection:
+            connection.execute("DELETE FROM plaid_items")
+            connection.execute("DELETE FROM link_sessions")
+        return {"status": "cleared"}
+
     @app.post("/webhooks/plaid", status_code=status.HTTP_200_OK)
     async def plaid_webhook(request: Request, background_tasks: BackgroundTasks, token: str | None = Query(default=None)) -> dict[str, str]:
         if not settings.webhook_secret or token is None or not hmac.compare_digest(token, settings.webhook_secret):

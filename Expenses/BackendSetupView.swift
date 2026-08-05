@@ -4,15 +4,18 @@
 //
 
 import SwiftUI
+import SwiftData
 import ExpensesCore
 
 struct BackendSetupView: View {
     @Binding var baseURLString: String
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var draftBaseURL: String
     @State private var bearerToken = ""
     @State private var status: ConnectionStatus = .idle
+    @State private var isShowingClearConfirmation = false
 
     private let tokenProvider = KeychainBearerTokenProvider()
 
@@ -85,6 +88,17 @@ struct BackendSetupView: View {
                 } footer: {
                     Text("Plaid client IDs, secrets, and access tokens never belong in the app.")
                 }
+
+                Section("Data") {
+                    Button("Clear all synced data", role: .destructive) {
+                        isShowingClearConfirmation = true
+                    }
+                    .disabled(!hasValidURL)
+
+                    Text("Use this once when moving from Plaid Sandbox to Production. It removes the saved test accounts and transactions from this backend and iPhone.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("Backend setup")
             .navigationBarTitleDisplayMode(.inline)
@@ -95,6 +109,17 @@ struct BackendSetupView: View {
             }
             .task {
                 bearerToken = (try? tokenProvider.bearerToken()) ?? ""
+            }
+            .confirmationDialog(
+                "Clear all synced data?",
+                isPresented: $isShowingClearConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Clear test data", role: .destructive) {
+                    Task { await clearSyncedData() }
+                }
+            } message: {
+                Text("This permanently deletes the connected Sandbox accounts and transactions from the backend and this iPhone. It does not change your actual bank account.")
             }
         }
     }
@@ -121,6 +146,22 @@ struct BackendSetupView: View {
             status = .success("Connection saved securely on this iPhone.")
         } catch {
             status = .failure("Could not save the token to Keychain.")
+        }
+    }
+
+    @MainActor
+    private func clearSyncedData() async {
+        guard let baseURL = normalizedURL else {
+            status = .failure("Enter a valid HTTPS backend address.")
+            return
+        }
+        status = .testing
+        do {
+            let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: baseURL))
+            try await store.clearSyncedData(modelContext: modelContext)
+            status = .success("Sandbox accounts and transactions cleared.")
+        } catch {
+            status = .failure("Could not clear synced data. Try again while the backend is online.")
         }
     }
 

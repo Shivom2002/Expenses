@@ -105,3 +105,19 @@ def test_exchange_sync_list_and_override_category(tmp_path: Path) -> None:
         assert override.status_code == 200
         assert override.json()["category"] == "Dining"
         assert override.json()["category_overridden"] is True
+
+
+def test_clear_data_removes_synced_sandbox_items(tmp_path: Path) -> None:
+    with client(tmp_path) as api:
+        api.post(
+            "/plaid/exchange-public-token",
+            headers=headers(),
+            json={"public_token": "public-token", "institution_name": "First Bank"},
+        )
+
+        response = api.delete("/data", headers=headers())
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "cleared"}
+        assert api.get("/accounts", headers=headers()).json() == []
+        assert api.get("/transactions", headers=headers()).json() == []
