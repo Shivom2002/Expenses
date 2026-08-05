@@ -68,6 +68,18 @@ public struct KeychainBearerTokenProvider: BearerTokenProviding {
             throw APIClientError.missingBearerToken
         }
     }
+
+    public func remove() throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw APIClientError.missingBearerToken
+        }
+    }
 }
 
 public protocol ExpensesAPI: Sendable {

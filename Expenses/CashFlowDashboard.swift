@@ -4,12 +4,15 @@
 //
 
 import Charts
+import SwiftData
 import SwiftUI
 import ExpensesCore
 
 struct CashFlowDashboard: View {
     let transactions: [ExpensesCore.Transaction]
     let apiBaseURL: URL
+
+    @Environment(\.modelContext) private var modelContext
 
     private let calendar = Calendar.current
 
@@ -187,7 +190,11 @@ struct CashFlowDashboard: View {
             Text("Connect a bank account once the app has been pointed at your deployed backend. Your real transactions will replace these empty summaries automatically.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            PlaidLinkButton(apiBaseURL: apiBaseURL)
+            PlaidLinkButton(apiBaseURL: apiBaseURL) {
+                let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
+                await store.refresh(modelContext: modelContext)
+            }
+            .id(apiBaseURL.absoluteString)
                 .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

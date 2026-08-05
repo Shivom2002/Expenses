@@ -4,13 +4,15 @@ import ExpensesCore
 
 struct PlaidLinkButton: View {
     private let api: ExpensesAPIClient
+    private let onConnected: (@MainActor () async -> Void)?
     @State private var linkSession: PlaidLinkSession?
     @State private var isPresentingLink = false
     @State private var isReady = false
     @State private var statusMessage: String?
 
-    init(apiBaseURL: URL) {
+    init(apiBaseURL: URL, onConnected: (@MainActor () async -> Void)? = nil) {
         self.api = ExpensesAPIClient(baseURL: apiBaseURL)
+        self.onConnected = onConnected
     }
 
     var body: some View {
@@ -53,7 +55,8 @@ struct PlaidLinkButton: View {
                                 institutionName: institution.name,
                                 institutionID: institution.id
                             )
-                            statusMessage = "Account connected. Your transactions will begin syncing shortly."
+                            await onConnected?()
+                            statusMessage = "Account connected and your transactions are synced."
                         } catch {
                             statusMessage = error.localizedDescription
                         }
