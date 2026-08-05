@@ -2,9 +2,12 @@
 name = "expenses-backend"
 version = "0.1.0"
 description = "Private Plaid proxy and sync service for Expenses"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-  "cryptography>=44.0.0",
+  # 44.x ships a universal macOS wheel. Newer releases can trigger a local
+  # source build on Intel/Rosetta Python that links against an incompatible
+  # OpenSSL installation.
+  "cryptography>=44.0.3,<45.0.0",
   "fastapi>=0.115.0",
   "httpx>=0.28.0",
   "uvicorn[standard]>=0.34.0",

@@ -6,7 +6,7 @@ The FastAPI service is the only component that talks to Plaid. It holds the Plai
 
 1. Copy .env.example to .env, then fill in Plaid Sandbox values and the two generated secrets.
 2. Export those values in your shell (or use a process manager that loads .env).
-3. Start the server with uv sync --all-groups, then uv run uvicorn app.main:app --reload.
+3. Start the server with `uv sync --all-groups`, then `uv run --env-file .env uvicorn app.main:app --reload`. The project pins Python 3.12 so local installs use the compatible runtime and cryptography wheel.
 4. Confirm the service responds: curl http://127.0.0.1:8000/health.
 5. Verify a Sandbox Link token without putting Plaid credentials in the client:
 
