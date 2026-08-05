@@ -30,6 +30,14 @@ struct ContentView: View {
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            AnalyticsDashboard(transactions: transactions)
+                        } label: {
+                            Image(systemName: "chart.pie.fill")
+                        }
+                        .accessibilityLabel("Analytics")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button("Backend setup", systemImage: "gearshape") {
                             isShowingBackendSetup = true
                         }
