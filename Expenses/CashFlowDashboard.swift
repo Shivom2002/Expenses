@@ -108,11 +108,26 @@ struct CashFlowDashboard: View {
                 .font(.title2.bold())
                 .padding(.bottom, 16)
 
-            CashFlowMetric(title: "Income", amount: totalIncome, tint: .expensesGreen, symbol: "arrow.down.left")
+            NavigationLink {
+                TransactionListView(transactions: transactions, initialFilter: .income)
+            } label: {
+                CashFlowMetric(title: "Income", amount: totalIncome, tint: .expensesGreen, symbol: "arrow.down.left", isInteractive: true)
+            }
+            .buttonStyle(.plain)
             Divider().padding(.leading, 31)
-            CashFlowMetric(title: "Expenses", amount: totalExpenses, tint: .expensesRed, symbol: "arrow.up.right")
+            NavigationLink {
+                TransactionListView(transactions: transactions, initialFilter: .expenses)
+            } label: {
+                CashFlowMetric(title: "Expenses", amount: totalExpenses, tint: .expensesRed, symbol: "arrow.up.right", isInteractive: true)
+            }
+            .buttonStyle(.plain)
             Divider().padding(.leading, 31)
-            CashFlowMetric(title: "Savings", amount: savings, tint: .primary, symbol: "circle")
+            NavigationLink {
+                TransactionListView(transactions: transactions, initialFilter: .savings)
+            } label: {
+                CashFlowMetric(title: "Savings", amount: savings, tint: .primary, symbol: "circle", isInteractive: true)
+            }
+            .buttonStyle(.plain)
         }
         .padding(20)
         .background(.background, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
@@ -137,18 +152,26 @@ struct CashFlowDashboard: View {
                     .padding(.vertical, 8)
             } else {
                 ForEach(categoryTotals) { category in
-                    HStack(spacing: 12) {
-                        Image(systemName: category.symbol)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(category.tint)
-                            .frame(width: 32, height: 32)
-                            .background(category.tint.opacity(0.14), in: Circle())
-                        Text(category.name)
-                            .font(.subheadline.weight(.medium))
-                        Spacer()
-                        Text(category.amount, format: .currency(code: "USD"))
-                            .font(.subheadline.weight(.semibold))
+                    NavigationLink {
+                        TransactionListView(transactions: transactions, initialFilter: .category(category.name))
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: category.symbol)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(category.tint)
+                                .frame(width: 32, height: 32)
+                                .background(category.tint.opacity(0.14), in: Circle())
+                            Text(category.name)
+                                .font(.subheadline.weight(.medium))
+                            Spacer()
+                            Text(category.amount, format: .currency(code: "USD"))
+                                .font(.subheadline.weight(.semibold))
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -241,6 +264,7 @@ private struct CashFlowMetric: View {
     let amount: Double
     let tint: Color
     let symbol: String
+    let isInteractive: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -254,6 +278,11 @@ private struct CashFlowMetric: View {
             Text(amount, format: .currency(code: "USD"))
                 .font(.title3.weight(.bold))
                 .foregroundStyle(tint)
+            if isInteractive {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding(.vertical, 15)
         .accessibilityElement(children: .combine)
