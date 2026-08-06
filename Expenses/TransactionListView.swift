@@ -414,11 +414,12 @@ private struct TransactionDetailView: View {
         if let customAmount = transaction.customShareAmount {
             return "Custom: \(customAmount.formatted(.currency(code: transaction.currencyCode ?? "USD")))"
         }
-        return switch transaction.splitFraction {
+        let splitFraction = transaction.splitFraction ?? 1
+        return switch splitFraction {
         case 1: "Full amount"
         case 0.5: "½ share"
         case 0.25: "¼ share"
-        default: "\(transaction.splitFraction.formatted(.percent.precision(.fractionLength(0)))) share"
+        default: "\(splitFraction.formatted(.percent.precision(.fractionLength(0)))) share"
         }
     }
 

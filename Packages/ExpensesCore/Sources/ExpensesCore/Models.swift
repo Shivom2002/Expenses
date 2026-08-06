@@ -55,7 +55,9 @@ public final class Transaction {
     public var isPending: Bool
     public var categoryName: String
     public var isCategoryOverridden: Bool
-    public var splitFraction: Double
+    /// `nil` represents the original, unsplit transaction. Keeping this optional
+    /// lets SwiftData migrate transactions saved before sharing support was added.
+    public var splitFraction: Double?
     public var customShareAmount: Double?
     public var currencyCode: String?
     public var account: Account?
@@ -70,7 +72,7 @@ public final class Transaction {
         isPending: Bool,
         categoryName: String,
         isCategoryOverridden: Bool,
-        splitFraction: Double = 1,
+        splitFraction: Double? = nil,
         customShareAmount: Double? = nil,
         currencyCode: String? = nil,
         account: Account? = nil
@@ -101,11 +103,11 @@ public extension Transaction {
         if let customShareAmount {
             return customShareAmount * (amount < 0 ? -1 : 1)
         }
-        return amount * splitFraction
+        return amount * (splitFraction ?? 1)
     }
 
     var hasSplit: Bool {
-        customShareAmount != nil || splitFraction != 1
+        customShareAmount != nil || (splitFraction ?? 1) != 1
     }
 }
 
