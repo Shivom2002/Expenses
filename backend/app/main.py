@@ -61,6 +61,17 @@ DETAILED_CATEGORY_MAP = {
     "TRANSFER_OUT": "Transfers",
 }
 
+# Enables the iOS app to receive OAuth handoffs from banks such as Chase.
+# This must match the Apple team ID and bundle ID used to sign Expenses iOS.
+APPLE_APP_SITE_ASSOCIATION = {
+    "applinks": {
+        "details": [{
+            "appIDs": ["DPAY85Q94G.shivomdhamija.Expenses.iOS"],
+            "components": [{"/": "/plaid/*"}],
+        }]
+    }
+}
+
 PRIMARY_CATEGORY_MAP = {
     "BANK_FEES": "Fees",
     "ENTERTAINMENT": "Entertainment",
@@ -325,6 +336,10 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/.well-known/apple-app-site-association", include_in_schema=False)
+    async def apple_app_site_association() -> dict[str, Any]:
+        return APPLE_APP_SITE_ASSOCIATION
 
     @app.post("/plaid/link-token", response_model=LinkTokenResponse, dependencies=[Depends(require_api_token)])
     async def create_link_token(request: LinkTokenRequest) -> LinkTokenResponse:

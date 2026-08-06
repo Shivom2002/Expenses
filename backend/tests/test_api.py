@@ -70,6 +70,14 @@ def test_api_requires_authentication(tmp_path: Path) -> None:
         assert api.get("/accounts").status_code == 401
 
 
+def test_serves_apple_app_site_association_without_authentication(tmp_path: Path) -> None:
+    with client(tmp_path) as api:
+        response = api.get("/.well-known/apple-app-site-association")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/json")
+        assert response.json()["applinks"]["details"][0]["appIDs"] == ["DPAY85Q94G.shivomdhamija.Expenses.iOS"]
+
+
 def test_creates_link_token_server_side(tmp_path: Path) -> None:
     with client(tmp_path) as api:
         response = api.post("/plaid/link-token", headers=headers(), json={"client_user_id": "personal-user"})
