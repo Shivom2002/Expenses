@@ -47,13 +47,15 @@ class PlaidClient:
         }
         if self.settings.plaid_webhook_url:
             payload["webhook"] = self.settings.plaid_webhook_url
-        if self.settings.plaid_redirect_uri:
-            payload["redirect_uri"] = self.settings.plaid_redirect_uri
         if presentation == "hosted":
+            if self.settings.plaid_hosted_redirect_uri:
+                payload["redirect_uri"] = self.settings.plaid_hosted_redirect_uri
             payload["hosted_link"] = {
                 "is_mobile_app": True,
                 "completion_redirect_uri": "expenses://hosted-link-complete",
             }
+        elif self.settings.plaid_redirect_uri:
+            payload["redirect_uri"] = self.settings.plaid_redirect_uri
         return await self.post("/link/token/create", payload)
 
     async def exchange_public_token(self, public_token: str) -> dict[str, Any]:

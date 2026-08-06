@@ -56,6 +56,7 @@ def client(tmp_path: Path) -> TestClient:
         database_path=tmp_path / "expenses.sqlite3", plaid_client_id="client", plaid_secret="secret",
         plaid_environment="sandbox", token_encryption_key=Fernet.generate_key().decode(),
         api_bearer_token="test-token", plaid_webhook_url=None, plaid_redirect_uri=None,
+        plaid_hosted_redirect_uri=None,
         webhook_secret="webhook-secret",
     )
     return TestClient(create_app(settings, FakePlaid()))
@@ -76,6 +77,13 @@ def test_serves_apple_app_site_association_without_authentication(tmp_path: Path
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("application/json")
         assert response.json()["applinks"]["details"][0]["appIDs"] == ["DPAY85Q94G.shivomdhamija.Expenses.iOS"]
+
+
+def test_serves_hosted_link_return_page_without_authentication(tmp_path: Path) -> None:
+    with client(tmp_path) as api:
+        response = api.get("/plaid/redirect")
+        assert response.status_code == 200
+        assert "Connection complete" in response.text
 
 
 def test_creates_link_token_server_side(tmp_path: Path) -> None:

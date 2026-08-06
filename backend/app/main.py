@@ -10,6 +10,7 @@ from typing import Any, AsyncIterator
 
 from cryptography.fernet import Fernet
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse
 
 from .config import Settings
 from .db import Database
@@ -340,6 +341,17 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
     @app.get("/.well-known/apple-app-site-association", include_in_schema=False)
     async def apple_app_site_association() -> dict[str, Any]:
         return APPLE_APP_SITE_ASSOCIATION
+
+    @app.get("/plaid/redirect", include_in_schema=False, response_class=HTMLResponse)
+    async def hosted_link_redirect() -> str:
+        return """
+        <!doctype html>
+        <html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+        <title>Expenses</title></head>
+        <body style=\"font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:48px 24px;text-align:center\">
+        <h1>Connection complete</h1><p>You can return to Expenses and tap Refresh accounts.</p>
+        </body></html>
+        """
 
     @app.post("/plaid/link-token", response_model=LinkTokenResponse, dependencies=[Depends(require_api_token)])
     async def create_link_token(request: LinkTokenRequest) -> LinkTokenResponse:
