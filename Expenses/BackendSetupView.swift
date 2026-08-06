@@ -55,14 +55,26 @@ struct BackendSetupView: View {
                             let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
                             await store.refresh(modelContext: modelContext)
                         }
+
+                        HostedPlaidLinkButton(apiBaseURL: apiBaseURL) {
+                            let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
+                            await store.refresh(modelContext: modelContext)
+                        }
                         .id(apiBaseURL.absoluteString)
+
+                        Button("Refresh accounts") {
+                            Task {
+                                let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
+                                await store.refresh(modelContext: modelContext)
+                            }
+                        }
                     } else {
                         Text("Save your backend connection and app access token before linking an account.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
 
-                    Text("Add another checking, savings, credit-card, or bank account through Plaid Link.")
+                    Text("Use the browser option for Chase. After completing it, return here and refresh if the account does not appear immediately.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
