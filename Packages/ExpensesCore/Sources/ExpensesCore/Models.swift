@@ -86,9 +86,9 @@ public final class Transaction {
 }
 
 public extension Transaction {
-    /// Credit card payments move money between accounts and should not be treated as spending twice.
+    /// Internal transfers and credit card payments move money between accounts and should not be counted twice.
     var countsTowardCashFlow: Bool {
-        categoryName != "Card Payment"
+        !["Card Payment", "Transfers"].contains(categoryName)
     }
 }
 
