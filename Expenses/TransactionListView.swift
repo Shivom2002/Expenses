@@ -12,6 +12,7 @@ enum TransactionFilter: Hashable {
     case income
     case expenses
     case savings
+    case transfers
     case category(String)
 
     var title: String {
@@ -20,6 +21,7 @@ enum TransactionFilter: Hashable {
         case .income: "Income"
         case .expenses: "Expenses"
         case .savings: "Savings"
+        case .transfers: "Transfers"
         case let .category(name): name
         }
     }
@@ -31,6 +33,7 @@ enum TransactionFilter: Hashable {
         case .income: period.map { "Money received in \($0)." } ?? "Money received across your connected accounts."
         case .expenses: period.map { "Money spent in \($0)." } ?? "Money spent across your connected accounts."
         case .savings: period.map { "Money in and out that determines net savings in \($0)." } ?? "Money in and out that determines your net savings."
+        case .transfers: period.map { "Transfers and card payments in \($0)." } ?? "Transfers and card payments between your connected accounts."
         case let .category(name): period.map { "Transactions categorized as \(name) in \($0)." } ?? "Every transaction categorized as \(name)."
         }
     }
@@ -40,9 +43,11 @@ enum TransactionFilter: Hashable {
         case .all, .savings:
             self == .all || transaction.countsTowardCashFlow
         case .income:
-            transaction.amount < 0
+            transaction.amount < 0 && transaction.countsTowardCashFlow
         case .expenses:
             transaction.amount > 0 && transaction.countsTowardCashFlow
+        case .transfers:
+            !transaction.countsTowardCashFlow
         case let .category(name):
             transaction.categoryName == name
         }
@@ -150,7 +155,7 @@ struct TransactionListView: View {
     }
 
     private var primaryFilters: [TransactionFilter] {
-        [.all, .income, .expenses, .savings]
+        [.all, .income, .expenses, .savings, .transfers]
     }
 }
 
