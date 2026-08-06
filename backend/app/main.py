@@ -25,21 +25,57 @@ from .schemas import (
 )
 
 
-CATEGORY_MAP = {
+DETAILED_CATEGORY_MAP = {
     "FOOD_AND_DRINK_GROCERIES": "Groceries",
     "FOOD_AND_DRINK_RESTAURANTS": "Dining",
+    "FOOD_AND_DRINK_COFFEE": "Dining",
+    "FOOD_AND_DRINK_FAST_FOOD": "Dining",
+    "FOOD_AND_DRINK_FOOD_DELIVERY": "Dining",
     "TRANSPORTATION_GAS": "Transport",
     "TRANSPORTATION_PUBLIC_TRANSIT": "Transport",
     "TRANSPORTATION_TAXIS_AND_RIDE_SHARES": "Transport",
+    "TRANSPORTATION_PARKING": "Transport",
+    "TRANSPORTATION_TOLLS": "Transport",
+    "TRANSPORTATION_OTHER_TRANSPORTATION": "Transport",
     "GENERAL_MERCHANDISE_ONLINE_MARKETPLACES": "Shopping",
+    "GENERAL_MERCHANDISE_CLOTHING_AND_ACCESSORIES": "Shopping",
+    "GENERAL_MERCHANDISE_CONVENIENCE_STORES": "Shopping",
+    "GENERAL_MERCHANDISE_DEPARTMENT_STORES": "Shopping",
+    "GENERAL_MERCHANDISE_DISCOUNT_STORES": "Shopping",
+    "GENERAL_MERCHANDISE_ELECTRONICS": "Shopping",
+    "GENERAL_MERCHANDISE_SUPERSTORES": "Shopping",
     "ENTERTAINMENT": "Entertainment",
     "MEDICAL": "Health",
+    "PERSONAL_CARE": "Personal Care",
     "RENT_AND_UTILITIES_RENT": "Housing",
+    "RENT_AND_UTILITIES_MORTGAGE": "Housing",
     "RENT_AND_UTILITIES_GAS_AND_ELECTRICITY": "Utilities",
     "RENT_AND_UTILITIES_INTERNET_AND_CABLE": "Utilities",
+    "RENT_AND_UTILITIES_SEWAGE_AND_WASTE_MANAGEMENT": "Utilities",
+    "RENT_AND_UTILITIES_TELEPHONE": "Utilities",
+    "RENT_AND_UTILITIES_WATER": "Utilities",
     "INCOME": "Income",
     "TRANSFER_IN": "Transfers",
     "TRANSFER_OUT": "Transfers",
+}
+
+PRIMARY_CATEGORY_MAP = {
+    "BANK_FEES": "Fees",
+    "ENTERTAINMENT": "Entertainment",
+    "FOOD_AND_DRINK": "Dining",
+    "GENERAL_MERCHANDISE": "Shopping",
+    "GENERAL_SERVICES": "Services",
+    "GOVERNMENT_AND_NON_PROFIT": "Government & Nonprofit",
+    "HOME_IMPROVEMENT": "Home Improvement",
+    "INCOME": "Income",
+    "LOAN_PAYMENTS": "Loan Payments",
+    "MEDICAL": "Health",
+    "PERSONAL_CARE": "Personal Care",
+    "RENT_AND_UTILITIES": "Utilities",
+    "TRANSPORTATION": "Transport",
+    "TRANSFER_IN": "Transfers",
+    "TRANSFER_OUT": "Transfers",
+    "TRAVEL": "Travel",
 }
 
 
@@ -47,12 +83,10 @@ def category_for(transaction: dict[str, Any]) -> tuple[str, str | None, str | No
     pfc = transaction.get("personal_finance_category") or {}
     primary = pfc.get("primary")
     detailed = pfc.get("detailed")
-    if detailed in CATEGORY_MAP:
-        return CATEGORY_MAP[detailed], primary, detailed
-    if primary == "INCOME":
-        return "Income", primary, detailed
-    if primary == "TRANSFER_IN" or primary == "TRANSFER_OUT":
-        return "Transfers", primary, detailed
+    if detailed in DETAILED_CATEGORY_MAP:
+        return DETAILED_CATEGORY_MAP[detailed], primary, detailed
+    if primary in PRIMARY_CATEGORY_MAP:
+        return PRIMARY_CATEGORY_MAP[primary], primary, detailed
     return "Other", primary, detailed
 
 
@@ -220,6 +254,30 @@ class Service:
             removed_transactions=sum(result[1] for result in results),
         )
 
+    def recategorize_transactions(self) -> int:
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, personal_finance_primary, personal_finance_detailed
+                FROM transactions
+                WHERE manual_category IS NULL
+                """
+            ).fetchall()
+            updates = []
+            for row in rows:
+                category, _, _ = category_for({
+                    "personal_finance_category": {
+                        "primary": row["personal_finance_primary"],
+                        "detailed": row["personal_finance_detailed"],
+                    }
+                })
+                updates.append((category, row["id"]))
+            connection.executemany(
+                "UPDATE transactions SET plaid_category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                updates,
+            )
+        return len(updates)
+
 
 def create_app(settings: Settings | None = None, plaid: PlaidClient | None = None) -> FastAPI:
     settings = settings or Settings.from_environment()
@@ -359,6 +417,35 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
             date=date.fromisoformat(row["transaction_date"]), pending=bool(row["pending"]),
             category=row["category"], category_overridden=True, currency=row["iso_currency_code"],
         )
+
+    @app.delete("/transactions/{transaction_id}/category", response_model=TransactionResponse, dependencies=[Depends(require_api_token)])
+    async def clear_transaction_category_override(transaction_id: str) -> TransactionResponse:
+        with database.connect() as connection:
+            connection.execute(
+                "UPDATE transactions SET manual_category = NULL, updated_at = CURRENT_TIMESTAMP WHERE plaid_transaction_id = ?",
+                (transaction_id,),
+            )
+            row = connection.execute(
+                """
+                SELECT t.*, a.name AS account_name, COALESCE(t.manual_category, t.plaid_category) AS category
+                FROM transactions t JOIN accounts a ON a.plaid_account_id = t.plaid_account_id
+                WHERE t.plaid_transaction_id = ?
+                """,
+                (transaction_id,),
+            ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        return TransactionResponse(
+            id=row["plaid_transaction_id"], account_id=row["plaid_account_id"],
+            account_name=row["account_name"], merchant_name=row["merchant_name"],
+            merchant_logo_url=row["merchant_logo_url"], name=row["name"], amount=row["amount"],
+            date=date.fromisoformat(row["transaction_date"]), pending=bool(row["pending"]),
+            category=row["category"], category_overridden=False, currency=row["iso_currency_code"],
+        )
+
+    @app.post("/transactions/recategorize", dependencies=[Depends(require_api_token)])
+    async def recategorize_transactions() -> dict[str, int]:
+        return {"updated_transactions": service.recategorize_transactions()}
 
     @app.post("/sync", response_model=SyncResponse, dependencies=[Depends(require_api_token)])
     async def sync() -> SyncResponse:

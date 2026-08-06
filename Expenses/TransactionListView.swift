@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import ExpensesCore
 
 enum TransactionFilter: Hashable {
@@ -202,6 +203,12 @@ private struct TransactionRow: View {
 private struct TransactionDetailView: View {
     let transaction: ExpensesCore.Transaction
 
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage("backendBaseURL") private var backendBaseURL = ""
+    @State private var isShowingCategoryPicker = false
+    @State private var isUpdatingCategory = false
+    @State private var categoryError: String?
+
     private var merchant: String {
         transaction.merchantName?.isEmpty == false ? transaction.merchantName! : transaction.name
     }
@@ -228,7 +235,24 @@ private struct TransactionDetailView: View {
 
             Section("Details") {
                 LabeledContent("Date", value: transaction.date.formatted(date: .long, time: .omitted))
-                LabeledContent("Category", value: transaction.categoryName)
+                Button {
+                    isShowingCategoryPicker = true
+                } label: {
+                    LabeledContent("Category") {
+                        HStack(spacing: 6) {
+                            Text(transaction.categoryName)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                .disabled(isUpdatingCategory)
+                if transaction.isCategoryOverridden {
+                    Text("Manually set")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 if let accountName = transaction.account?.name {
                     LabeledContent("Account", value: accountName)
                 }
@@ -236,13 +260,117 @@ private struct TransactionDetailView: View {
                     LabeledContent("Status", value: "Pending")
                 }
             }
+
+            if let categoryError {
+                Section {
+                    Label(categoryError, systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            }
         }
         .navigationTitle("Transaction")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingCategoryPicker) {
+            NavigationStack {
+                List {
+                    Section("Choose a category") {
+                        ForEach(TransactionCategoryOption.allCases) { category in
+                            Button {
+                                Task { await updateCategory(category.rawValue) }
+                            } label: {
+                                HStack {
+                                    Text(category.rawValue)
+                                    Spacer()
+                                    if transaction.categoryName == category.rawValue {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(Color.expensesGreen)
+                                    }
+                                }
+                            }
+                            .disabled(isUpdatingCategory)
+                        }
+                    }
+
+                    if transaction.isCategoryOverridden {
+                        Section {
+                            Button("Use Plaid’s category", role: .destructive) {
+                                Task { await updateCategory(nil) }
+                            }
+                            .disabled(isUpdatingCategory)
+                        } footer: {
+                            Text("This restores the category supplied by Plaid.")
+                        }
+                    }
+                }
+                .navigationTitle("Category")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { isShowingCategoryPicker = false }
+                    }
+                }
+                .overlay {
+                    if isUpdatingCategory {
+                        ProgressView("Saving category…")
+                            .padding(20)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                }
+            }
+        }
     }
 
     private var displayAmount: String {
         let sign = transaction.amount < 0 ? "+" : "−"
         return sign + transaction.amount.magnitude.formatted(.currency(code: transaction.currencyCode ?? "USD"))
     }
+
+    @MainActor
+    private func updateCategory(_ category: String?) async {
+        guard let apiBaseURL = URL(string: backendBaseURL) else {
+            categoryError = "Set up the backend before changing categories."
+            return
+        }
+
+        isUpdatingCategory = true
+        categoryError = nil
+        defer { isUpdatingCategory = false }
+        do {
+            let api = ExpensesAPIClient(baseURL: apiBaseURL)
+            let remote = if let category {
+                try await api.overrideCategory(transactionID: transaction.remoteID, category: category)
+            } else {
+                try await api.clearCategoryOverride(transactionID: transaction.remoteID)
+            }
+            transaction.categoryName = remote.category
+            transaction.isCategoryOverridden = remote.categoryOverridden
+            try modelContext.save()
+            isShowingCategoryPicker = false
+        } catch {
+            categoryError = "Could not save this category. Check your backend connection and try again."
+        }
+    }
+}
+
+private enum TransactionCategoryOption: String, CaseIterable, Identifiable {
+    case groceries = "Groceries"
+    case dining = "Dining"
+    case shopping = "Shopping"
+    case transport = "Transport"
+    case travel = "Travel"
+    case housing = "Housing"
+    case utilities = "Utilities"
+    case entertainment = "Entertainment"
+    case health = "Health"
+    case personalCare = "Personal Care"
+    case homeImprovement = "Home Improvement"
+    case services = "Services"
+    case fees = "Fees"
+    case loanPayments = "Loan Payments"
+    case transfers = "Transfers"
+    case income = "Income"
+    case other = "Other"
+
+    var id: String { rawValue }
 }

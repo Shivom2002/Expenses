@@ -92,8 +92,10 @@ public protocol ExpensesAPI: Sendable {
     func accounts() async throws -> [RemoteAccount]
     func transactions() async throws -> [RemoteTransaction]
     func sync() async throws -> RemoteSyncResult
+    func recategorizeTransactions() async throws
     func clearData() async throws
     func overrideCategory(transactionID: String, category: String) async throws -> RemoteTransaction
+    func clearCategoryOverride(transactionID: String) async throws -> RemoteTransaction
 }
 
 public actor ExpensesAPIClient: ExpensesAPI {
@@ -147,6 +149,10 @@ public actor ExpensesAPIClient: ExpensesAPI {
         try await send(path: "sync", method: "POST")
     }
 
+    public func recategorizeTransactions() async throws {
+        let _: EmptyResponse = try await send(path: "transactions/recategorize", method: "POST")
+    }
+
     public func clearData() async throws {
         let _: EmptyResponse = try await send(path: "data", method: "DELETE")
     }
@@ -157,6 +163,10 @@ public actor ExpensesAPIClient: ExpensesAPI {
             method: "PATCH",
             body: CategoryOverrideRequest(category: category)
         )
+    }
+
+    public func clearCategoryOverride(transactionID: String) async throws -> RemoteTransaction {
+        try await send(path: "transactions/\(transactionID)/category", method: "DELETE")
     }
 
     private func send<Response: Decodable>(path: String, method: String) async throws -> Response {

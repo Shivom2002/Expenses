@@ -12,6 +12,7 @@ struct ContentView: View {
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
     @State private var isShowingBackendSetup = false
 
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \ExpensesCore.Transaction.date, order: .reverse) private var transactions: [ExpensesCore.Transaction]
 
     init(apiBaseURL: URL) {
@@ -48,6 +49,10 @@ struct ContentView: View {
         .tint(Color.expensesGreen)
         .sheet(isPresented: $isShowingBackendSetup) {
             BackendSetupView(baseURLString: $backendBaseURL)
+        }
+        .task(id: apiBaseURL.absoluteString) {
+            let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
+            await store.refresh(modelContext: modelContext)
         }
     }
 }

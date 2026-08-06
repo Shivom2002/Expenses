@@ -20,6 +20,7 @@ public final class FinanceDataStore {
         defer { isRefreshing = false }
 
         do {
+            try await api.recategorizeTransactions()
             lastSync = try await api.sync()
             async let remoteAccounts = api.accounts()
             async let remoteTransactions = api.transactions()

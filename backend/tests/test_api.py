@@ -12,7 +12,7 @@ os.environ.setdefault("TOKEN_ENCRYPTION_KEY", Fernet.generate_key().decode())
 os.environ.setdefault("API_BEARER_TOKEN", "test-token")
 
 from app.config import Settings
-from app.main import create_app
+from app.main import category_for, create_app
 
 
 class FakePlaid:
@@ -105,6 +105,25 @@ def test_exchange_sync_list_and_override_category(tmp_path: Path) -> None:
         assert override.status_code == 200
         assert override.json()["category"] == "Dining"
         assert override.json()["category_overridden"] is True
+        restored = api.delete("/transactions/transaction-123/category", headers=headers())
+        assert restored.status_code == 200
+        assert restored.json()["category"] == "Groceries"
+        assert restored.json()["category_overridden"] is False
+        recategorized = api.post("/transactions/recategorize", headers=headers())
+        assert recategorized.status_code == 200
+        assert recategorized.json()["updated_transactions"] == 1
+
+
+def test_category_mapping_uses_detailed_then_primary_category() -> None:
+    assert category_for({"personal_finance_category": {
+        "primary": "TRAVEL", "detailed": "TRAVEL_FLIGHTS",
+    }})[0] == "Travel"
+    assert category_for({"personal_finance_category": {
+        "primary": "BANK_FEES", "detailed": "BANK_FEES_OTHER_BANK_FEES",
+    }})[0] == "Fees"
+    assert category_for({"personal_finance_category": {
+        "primary": "RENT_AND_UTILITIES", "detailed": "RENT_AND_UTILITIES_RENT",
+    }})[0] == "Housing"
 
 
 def test_clear_data_removes_synced_sandbox_items(tmp_path: Path) -> None:
