@@ -44,6 +44,9 @@ class TransactionResponse(BaseModel):
     merchant_logo_url: str | None
     name: str
     amount: float
+    effective_amount: float
+    split_fraction: float
+    custom_share_amount: float | None
     date: date
     pending: bool
     category: str
@@ -53,6 +56,11 @@ class TransactionResponse(BaseModel):
 
 class TransactionCategoryOverride(BaseModel):
     category: str = Field(min_length=1, max_length=60)
+
+
+class TransactionSplitOverride(BaseModel):
+    fraction: float | None = Field(default=None, gt=0, le=1)
+    custom_amount: float | None = Field(default=None, gt=0)
 
 
 class SyncResponse(BaseModel):

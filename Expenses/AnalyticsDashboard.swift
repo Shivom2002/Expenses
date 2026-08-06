@@ -26,11 +26,11 @@ struct AnalyticsDashboard: View {
     }
 
     private var currentIncome: Double {
-        -selectedMonthTransactions.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount }
+        -selectedMonthTransactions.filter { $0.amount < 0 }.reduce(0) { $0 + $1.effectiveAmount }
     }
 
     private var currentExpenses: Double {
-        selectedMonthTransactions.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount }
+        selectedMonthTransactions.filter { $0.amount > 0 }.reduce(0) { $0 + $1.effectiveAmount }
     }
 
     private var savingsRate: Double? {
@@ -42,7 +42,7 @@ struct AnalyticsDashboard: View {
         let spending = selectedMonthTransactions.filter { $0.amount > 0 }
         let grouped = Dictionary(grouping: spending, by: \ExpensesCore.Transaction.categoryName)
         return grouped.map { name, transactions in
-            AnalyticsCategory(name: name, amount: transactions.reduce(0) { $0 + $1.amount })
+            AnalyticsCategory(name: name, amount: transactions.reduce(0) { $0 + $1.effectiveAmount })
         }
         .sorted { $0.amount > $1.amount }
     }
@@ -57,7 +57,7 @@ struct AnalyticsDashboard: View {
                         && !$0.isPending
                         && $0.countsTowardCashFlow
                 }
-                .reduce(0) { $0 + $1.amount }
+                .reduce(0) { $0 + $1.effectiveAmount }
             return MonthlySpending(date: date, total: total)
         }
     }

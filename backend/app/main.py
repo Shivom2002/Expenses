@@ -21,6 +21,7 @@ from .schemas import (
     PublicTokenExchangeRequest,
     SyncResponse,
     TransactionCategoryOverride,
+    TransactionSplitOverride,
     TransactionResponse,
 )
 
@@ -302,6 +303,25 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
         if authorization is None or not hmac.compare_digest(authorization, expected):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
+    def transaction_response(row: sqlite3.Row) -> TransactionResponse:
+        amount = float(row["amount"])
+        custom_share_amount = row["custom_share_amount"]
+        split_fraction = float(row["split_fraction"])
+        if custom_share_amount is not None:
+            effective_amount = abs(float(custom_share_amount)) * (-1 if amount < 0 else 1)
+        else:
+            effective_amount = amount * split_fraction
+        return TransactionResponse(
+            id=row["plaid_transaction_id"], account_id=row["plaid_account_id"],
+            account_name=row["account_name"], merchant_name=row["merchant_name"],
+            merchant_logo_url=row["merchant_logo_url"], name=row["name"], amount=amount,
+            effective_amount=effective_amount, split_fraction=split_fraction,
+            custom_share_amount=custom_share_amount,
+            date=date.fromisoformat(row["transaction_date"]), pending=bool(row["pending"]),
+            category=row["category"], category_overridden=row["manual_category"] is not None,
+            currency=row["iso_currency_code"],
+        )
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
@@ -380,17 +400,7 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
         query += " ORDER BY t.transaction_date DESC, t.id DESC"
         with database.connect() as connection:
             rows = connection.execute(query, values).fetchall()
-        return [
-            TransactionResponse(
-                id=row["plaid_transaction_id"], account_id=row["plaid_account_id"],
-                account_name=row["account_name"], merchant_name=row["merchant_name"],
-                merchant_logo_url=row["merchant_logo_url"], name=row["name"], amount=row["amount"],
-                date=date.fromisoformat(row["transaction_date"]), pending=bool(row["pending"]),
-                category=row["category"], category_overridden=row["manual_category"] is not None,
-                currency=row["iso_currency_code"],
-            )
-            for row in rows
-        ]
+        return [transaction_response(row) for row in rows]
 
     @app.patch("/transactions/{transaction_id}", response_model=TransactionResponse, dependencies=[Depends(require_api_token)])
     async def override_transaction_category(
@@ -411,13 +421,7 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
             ).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Transaction not found")
-        return TransactionResponse(
-            id=row["plaid_transaction_id"], account_id=row["plaid_account_id"],
-            account_name=row["account_name"], merchant_name=row["merchant_name"],
-            merchant_logo_url=row["merchant_logo_url"], name=row["name"], amount=row["amount"],
-            date=date.fromisoformat(row["transaction_date"]), pending=bool(row["pending"]),
-            category=row["category"], category_overridden=True, currency=row["iso_currency_code"],
-        )
+        return transaction_response(row)
 
     @app.delete("/transactions/{transaction_id}/category", response_model=TransactionResponse, dependencies=[Depends(require_api_token)])
     async def clear_transaction_category_override(transaction_id: str) -> TransactionResponse:
@@ -436,13 +440,62 @@ def create_app(settings: Settings | None = None, plaid: PlaidClient | None = Non
             ).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Transaction not found")
-        return TransactionResponse(
-            id=row["plaid_transaction_id"], account_id=row["plaid_account_id"],
-            account_name=row["account_name"], merchant_name=row["merchant_name"],
-            merchant_logo_url=row["merchant_logo_url"], name=row["name"], amount=row["amount"],
-            date=date.fromisoformat(row["transaction_date"]), pending=bool(row["pending"]),
-            category=row["category"], category_overridden=False, currency=row["iso_currency_code"],
-        )
+        return transaction_response(row)
+
+    @app.patch("/transactions/{transaction_id}/split", response_model=TransactionResponse, dependencies=[Depends(require_api_token)])
+    async def set_transaction_split(
+        transaction_id: str, split: TransactionSplitOverride
+    ) -> TransactionResponse:
+        if (split.fraction is None) == (split.custom_amount is None):
+            raise HTTPException(status_code=422, detail="Provide exactly one of fraction or custom_amount")
+        with database.connect() as connection:
+            row = connection.execute(
+                "SELECT amount FROM transactions WHERE plaid_transaction_id = ?", (transaction_id,)
+            ).fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Transaction not found")
+            if split.custom_amount is not None and split.custom_amount > abs(float(row["amount"])):
+                raise HTTPException(status_code=422, detail="Custom share cannot exceed the transaction amount")
+            connection.execute(
+                """
+                UPDATE transactions
+                SET split_fraction = ?, custom_share_amount = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE plaid_transaction_id = ?
+                """,
+                (split.fraction if split.fraction is not None else 1, split.custom_amount, transaction_id),
+            )
+            updated = connection.execute(
+                """
+                SELECT t.*, a.name AS account_name, COALESCE(t.manual_category, t.plaid_category) AS category
+                FROM transactions t JOIN accounts a ON a.plaid_account_id = t.plaid_account_id
+                WHERE t.plaid_transaction_id = ?
+                """,
+                (transaction_id,),
+            ).fetchone()
+        return transaction_response(updated)
+
+    @app.delete("/transactions/{transaction_id}/split", response_model=TransactionResponse, dependencies=[Depends(require_api_token)])
+    async def clear_transaction_split(transaction_id: str) -> TransactionResponse:
+        with database.connect() as connection:
+            connection.execute(
+                """
+                UPDATE transactions
+                SET split_fraction = 1, custom_share_amount = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE plaid_transaction_id = ?
+                """,
+                (transaction_id,),
+            )
+            row = connection.execute(
+                """
+                SELECT t.*, a.name AS account_name, COALESCE(t.manual_category, t.plaid_category) AS category
+                FROM transactions t JOIN accounts a ON a.plaid_account_id = t.plaid_account_id
+                WHERE t.plaid_transaction_id = ?
+                """,
+                (transaction_id,),
+            ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        return transaction_response(row)
 
     @app.post("/transactions/recategorize", dependencies=[Depends(require_api_token)])
     async def recategorize_transactions() -> dict[str, int]:

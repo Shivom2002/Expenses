@@ -208,6 +208,11 @@ private struct TransactionDetailView: View {
     @State private var isShowingCategoryPicker = false
     @State private var isUpdatingCategory = false
     @State private var categoryError: String?
+    @State private var isShowingSplitPicker = false
+    @State private var isShowingCustomShare = false
+    @State private var customShareText = ""
+    @State private var isUpdatingSplit = false
+    @State private var splitError: String?
 
     private var merchant: String {
         transaction.merchantName?.isEmpty == false ? transaction.merchantName! : transaction.name
@@ -253,6 +258,24 @@ private struct TransactionDetailView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                Button {
+                    isShowingSplitPicker = true
+                } label: {
+                    LabeledContent("Split") {
+                        HStack(spacing: 6) {
+                            Text(splitDescription)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                .disabled(isUpdatingSplit)
+                if transaction.hasSplit {
+                    LabeledContent("Your share", value: displayEffectiveAmount)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 if let accountName = transaction.account?.name {
                     LabeledContent("Account", value: accountName)
                 }
@@ -264,6 +287,13 @@ private struct TransactionDetailView: View {
             if let categoryError {
                 Section {
                     Label(categoryError, systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            }
+            if let splitError {
+                Section {
+                    Label(splitError, systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
@@ -319,11 +349,77 @@ private struct TransactionDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $isShowingSplitPicker) {
+            NavigationStack {
+                List {
+                    Section("How much was your share?") {
+                        SplitOptionButton(title: "Full amount", subtitle: "Count the entire transaction") {
+                            Task { await updateSplit(fraction: 1) }
+                        }
+                        SplitOptionButton(title: "Half", subtitle: "Count ½ of the transaction") {
+                            Task { await updateSplit(fraction: 0.5) }
+                        }
+                        SplitOptionButton(title: "Quarter", subtitle: "Count ¼ of the transaction") {
+                            Task { await updateSplit(fraction: 0.25) }
+                        }
+                        Button("Custom amount…") {
+                            isShowingSplitPicker = false
+                            isShowingCustomShare = true
+                        }
+                    }
+                }
+                .navigationTitle("Split transaction")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { isShowingSplitPicker = false }
+                    }
+                }
+                .overlay {
+                    if isUpdatingSplit {
+                        ProgressView("Saving split…")
+                            .padding(20)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                }
+            }
+        }
+        .alert("Custom share", isPresented: $isShowingCustomShare) {
+            TextField("Amount", text: $customShareText)
+                .keyboardType(.decimalPad)
+            Button("Save") {
+                guard let amount = Double(customShareText), amount > 0 else {
+                    splitError = "Enter a valid amount for your share."
+                    return
+                }
+                Task { await updateSplit(customAmount: amount) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Enter your portion of the \(transaction.amount.magnitude.formatted(.currency(code: transaction.currencyCode ?? "USD"))) transaction.")
+        }
     }
 
     private var displayAmount: String {
         let sign = transaction.amount < 0 ? "+" : "−"
         return sign + transaction.amount.magnitude.formatted(.currency(code: transaction.currencyCode ?? "USD"))
+    }
+
+    private var displayEffectiveAmount: String {
+        let sign = transaction.effectiveAmount < 0 ? "+" : "−"
+        return sign + transaction.effectiveAmount.magnitude.formatted(.currency(code: transaction.currencyCode ?? "USD"))
+    }
+
+    private var splitDescription: String {
+        if let customAmount = transaction.customShareAmount {
+            return "Custom: \(customAmount.formatted(.currency(code: transaction.currencyCode ?? "USD")))"
+        }
+        return switch transaction.splitFraction {
+        case 1: "Full amount"
+        case 0.5: "½ share"
+        case 0.25: "¼ share"
+        default: "\(transaction.splitFraction.formatted(.percent.precision(.fractionLength(0)))) share"
+        }
     }
 
     @MainActor
@@ -349,6 +445,50 @@ private struct TransactionDetailView: View {
             isShowingCategoryPicker = false
         } catch {
             categoryError = "Could not save this category. Check your backend connection and try again."
+        }
+    }
+
+    @MainActor
+    private func updateSplit(fraction: Double? = nil, customAmount: Double? = nil) async {
+        guard let apiBaseURL = URL(string: backendBaseURL) else {
+            splitError = "Set up the backend before saving a split."
+            return
+        }
+
+        isUpdatingSplit = true
+        splitError = nil
+        defer { isUpdatingSplit = false }
+        do {
+            let remote = try await ExpensesAPIClient(baseURL: apiBaseURL).setSplit(
+                transactionID: transaction.remoteID,
+                fraction: fraction,
+                customAmount: customAmount
+            )
+            transaction.splitFraction = remote.splitFraction
+            transaction.customShareAmount = remote.customShareAmount
+            try modelContext.save()
+            customShareText = ""
+            isShowingCustomShare = false
+            isShowingSplitPicker = false
+        } catch {
+            splitError = "Could not save this split. Make sure the amount does not exceed the transaction total."
+        }
+    }
+}
+
+private struct SplitOptionButton: View {
+    let title: String
+    let subtitle: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                Text(subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }

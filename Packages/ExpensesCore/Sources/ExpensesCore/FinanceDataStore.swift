@@ -87,7 +87,9 @@ public final class FinanceDataStore {
                 date: date,
                 isPending: remote.pending,
                 categoryName: remote.category,
-                isCategoryOverridden: remote.categoryOverridden
+                isCategoryOverridden: remote.categoryOverridden,
+                splitFraction: remote.splitFraction,
+                customShareAmount: remote.customShareAmount
             )
             transaction.merchantName = remote.merchantName
             transaction.merchantLogoURL = remote.merchantLogoURL
@@ -97,6 +99,8 @@ public final class FinanceDataStore {
             transaction.isPending = remote.pending
             transaction.categoryName = remote.category
             transaction.isCategoryOverridden = remote.categoryOverridden
+            transaction.splitFraction = remote.splitFraction
+            transaction.customShareAmount = remote.customShareAmount
             transaction.currencyCode = remote.currency
             transaction.account = accountsByRemoteID[remote.accountID]
             if transactionsByRemoteID[remote.id] == nil {

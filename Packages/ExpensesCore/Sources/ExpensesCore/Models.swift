@@ -55,6 +55,8 @@ public final class Transaction {
     public var isPending: Bool
     public var categoryName: String
     public var isCategoryOverridden: Bool
+    public var splitFraction: Double
+    public var customShareAmount: Double?
     public var currencyCode: String?
     public var account: Account?
 
@@ -68,6 +70,8 @@ public final class Transaction {
         isPending: Bool,
         categoryName: String,
         isCategoryOverridden: Bool,
+        splitFraction: Double = 1,
+        customShareAmount: Double? = nil,
         currencyCode: String? = nil,
         account: Account? = nil
     ) {
@@ -80,6 +84,8 @@ public final class Transaction {
         self.isPending = isPending
         self.categoryName = categoryName
         self.isCategoryOverridden = isCategoryOverridden
+        self.splitFraction = splitFraction
+        self.customShareAmount = customShareAmount
         self.currencyCode = currencyCode
         self.account = account
     }
@@ -89,6 +95,17 @@ public extension Transaction {
     /// Internal transfers and credit card payments move money between accounts and should not be counted twice.
     var countsTowardCashFlow: Bool {
         !["Card Payment", "Transfers"].contains(categoryName)
+    }
+
+    var effectiveAmount: Double {
+        if let customShareAmount {
+            return customShareAmount * (amount < 0 ? -1 : 1)
+        }
+        return amount * splitFraction
+    }
+
+    var hasSplit: Bool {
+        customShareAmount != nil || splitFraction != 1
     }
 }
 

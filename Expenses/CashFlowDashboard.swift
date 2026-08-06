@@ -205,7 +205,7 @@ struct CashFlowDashboard: View {
         let grouped = Dictionary(grouping: spending, by: \ExpensesCore.Transaction.categoryName)
 
         return grouped.map { name, categoryTransactions in
-            CategoryTotal(name: name, amount: categoryTransactions.reduce(0) { $0 + $1.amount })
+            CategoryTotal(name: name, amount: categoryTransactions.reduce(0) { $0 + $1.effectiveAmount })
         }
         .sorted { $0.amount > $1.amount }
         .prefix(4)
@@ -218,8 +218,8 @@ struct CashFlowDashboard: View {
                 && !$0.isPending
                 && $0.countsTowardCashFlow
         }
-        let income = -relevant.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount }
-        let expenses = relevant.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount }
+        let income = -relevant.filter { $0.amount < 0 }.reduce(0) { $0 + $1.effectiveAmount }
+        let expenses = relevant.filter { $0.amount > 0 }.reduce(0) { $0 + $1.effectiveAmount }
         return MonthCashFlow(date: date, income: income, expenses: expenses)
     }
 }

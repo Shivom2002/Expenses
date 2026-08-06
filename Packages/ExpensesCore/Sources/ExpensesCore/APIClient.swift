@@ -96,6 +96,8 @@ public protocol ExpensesAPI: Sendable {
     func clearData() async throws
     func overrideCategory(transactionID: String, category: String) async throws -> RemoteTransaction
     func clearCategoryOverride(transactionID: String) async throws -> RemoteTransaction
+    func setSplit(transactionID: String, fraction: Double?, customAmount: Double?) async throws -> RemoteTransaction
+    func clearSplit(transactionID: String) async throws -> RemoteTransaction
 }
 
 public actor ExpensesAPIClient: ExpensesAPI {
@@ -169,6 +171,20 @@ public actor ExpensesAPIClient: ExpensesAPI {
         try await send(path: "transactions/\(transactionID)/category", method: "DELETE")
     }
 
+    public func setSplit(
+        transactionID: String, fraction: Double? = nil, customAmount: Double? = nil
+    ) async throws -> RemoteTransaction {
+        try await send(
+            path: "transactions/\(transactionID)/split",
+            method: "PATCH",
+            body: TransactionSplitRequest(fraction: fraction, customAmount: customAmount)
+        )
+    }
+
+    public func clearSplit(transactionID: String) async throws -> RemoteTransaction {
+        try await send(path: "transactions/\(transactionID)/split", method: "DELETE")
+    }
+
     private func send<Response: Decodable>(path: String, method: String) async throws -> Response {
         try await request(path: path, method: method, body: nil)
     }
@@ -216,6 +232,16 @@ public actor ExpensesAPIClient: ExpensesAPI {
 
 private struct CategoryOverrideRequest: Encodable {
     let category: String
+}
+
+private struct TransactionSplitRequest: Encodable {
+    let fraction: Double?
+    let customAmount: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case fraction
+        case customAmount = "custom_amount"
+    }
 }
 
 private struct LinkTokenRequest: Encodable {
@@ -287,6 +313,9 @@ public struct RemoteTransaction: Codable, Sendable, Identifiable {
     public let merchantLogoURL: String?
     public let name: String
     public let amount: Double
+    public let effectiveAmount: Double
+    public let splitFraction: Double
+    public let customShareAmount: Double?
     public let date: String
     public let pending: Bool
     public let category: String
@@ -301,6 +330,9 @@ public struct RemoteTransaction: Codable, Sendable, Identifiable {
         case merchantLogoURL = "merchant_logo_url"
         case name
         case amount
+        case effectiveAmount = "effective_amount"
+        case splitFraction = "split_fraction"
+        case customShareAmount = "custom_share_amount"
         case date
         case pending
         case category

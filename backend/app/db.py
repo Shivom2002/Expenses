@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     personal_finance_primary TEXT,
     personal_finance_detailed TEXT,
     raw_json TEXT NOT NULL,
+    split_fraction REAL NOT NULL DEFAULT 1,
+    custom_share_amount REAL,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -80,3 +82,8 @@ class Database:
     def initialize(self) -> None:
         with self.connect() as connection:
             connection.executescript(SCHEMA)
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(transactions)")}
+            if "split_fraction" not in columns:
+                connection.execute("ALTER TABLE transactions ADD COLUMN split_fraction REAL NOT NULL DEFAULT 1")
+            if "custom_share_amount" not in columns:
+                connection.execute("ALTER TABLE transactions ADD COLUMN custom_share_amount REAL")

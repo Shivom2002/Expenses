@@ -112,6 +112,19 @@ def test_exchange_sync_list_and_override_category(tmp_path: Path) -> None:
         recategorized = api.post("/transactions/recategorize", headers=headers())
         assert recategorized.status_code == 200
         assert recategorized.json()["updated_transactions"] == 1
+        split = api.patch(
+            "/transactions/transaction-123/split", headers=headers(), json={"fraction": 0.5}
+        )
+        assert split.status_code == 200
+        assert split.json()["effective_amount"] == 21.25
+        custom_split = api.patch(
+            "/transactions/transaction-123/split", headers=headers(), json={"custom_amount": 10}
+        )
+        assert custom_split.status_code == 200
+        assert custom_split.json()["effective_amount"] == 10
+        reset_split = api.delete("/transactions/transaction-123/split", headers=headers())
+        assert reset_split.status_code == 200
+        assert reset_split.json()["effective_amount"] == 42.5
 
 
 def test_category_mapping_uses_detailed_then_primary_category() -> None:
