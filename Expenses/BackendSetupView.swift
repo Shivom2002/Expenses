@@ -16,6 +16,9 @@ struct BackendSetupView: View {
     @State private var bearerToken = ""
     @State private var status: ConnectionStatus = .idle
     @State private var isShowingClearConfirmation = false
+    @State private var isRefreshingAccounts = false
+    @State private var accountRefreshMessage: String?
+    @State private var accountRefreshFailed = false
 
     private let tokenProvider = KeychainBearerTokenProvider()
 
@@ -52,21 +55,28 @@ struct BackendSetupView: View {
                     if let apiBaseURL = normalizedURL,
                        !bearerToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         PlaidLinkButton(apiBaseURL: apiBaseURL) {
-                            let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
-                            await store.refresh(modelContext: modelContext)
+                            await refreshAccounts()
                         }
-
-                        HostedPlaidLinkButton(apiBaseURL: apiBaseURL) {
-                            let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
-                            await store.refresh(modelContext: modelContext)
-                        }
-                        .id(apiBaseURL.absoluteString)
 
                         Button("Refresh accounts") {
-                            Task {
-                                let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
-                                await store.refresh(modelContext: modelContext)
+                            Task { await refreshAccounts() }
+                        }
+                        .disabled(isRefreshingAccounts)
+
+                        if isRefreshingAccounts {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("Refreshing accounts and transactions…")
                             }
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        } else if let accountRefreshMessage {
+                            Label(
+                                accountRefreshMessage,
+                                systemImage: accountRefreshFailed ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+                            )
+                            .font(.footnote)
+                            .foregroundStyle(accountRefreshFailed ? .red : Color.expensesGreen)
                         }
                     } else {
                         Text("Save your backend connection and app access token before linking an account.")
@@ -74,7 +84,7 @@ struct BackendSetupView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Text("Use the browser option for Chase. After completing it, return here and refresh if the account does not appear immediately.")
+                    Text("Add another checking, savings, credit-card, or bank account through Plaid Link.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -177,6 +187,24 @@ struct BackendSetupView: View {
             status = .success("Connection saved securely on this iPhone.")
         } catch {
             status = .failure("Could not save the token to Keychain.")
+        }
+    }
+
+    @MainActor
+    private func refreshAccounts() async {
+        guard let apiBaseURL = normalizedURL else { return }
+        isRefreshingAccounts = true
+        accountRefreshMessage = nil
+        defer { isRefreshingAccounts = false }
+
+        let store = FinanceDataStore(api: ExpensesAPIClient(baseURL: apiBaseURL))
+        await store.refresh(modelContext: modelContext)
+        if let error = store.lastError {
+            accountRefreshFailed = true
+            accountRefreshMessage = "Could not refresh accounts: \(error)"
+        } else {
+            accountRefreshFailed = false
+            accountRefreshMessage = "Accounts and transactions refreshed."
         }
     }
 
