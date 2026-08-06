@@ -199,7 +199,9 @@ struct CashFlowDashboard: View {
 
     private var categoryTotals: [CategoryTotal] {
         let start = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
-        let spending = transactions.filter { $0.date >= start && $0.amount > 0 && !$0.isPending }
+        let spending = transactions.filter {
+            $0.date >= start && $0.amount > 0 && !$0.isPending && $0.countsTowardCashFlow
+        }
         let grouped = Dictionary(grouping: spending, by: \ExpensesCore.Transaction.categoryName)
 
         return grouped.map { name, categoryTransactions in
@@ -212,7 +214,9 @@ struct CashFlowDashboard: View {
 
     private func cashFlow(for date: Date) -> MonthCashFlow {
         let relevant = transactions.filter {
-            calendar.isDate($0.date, equalTo: date, toGranularity: .month) && !$0.isPending
+            calendar.isDate($0.date, equalTo: date, toGranularity: .month)
+                && !$0.isPending
+                && $0.countsTowardCashFlow
         }
         let income = -relevant.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount }
         let expenses = relevant.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount }

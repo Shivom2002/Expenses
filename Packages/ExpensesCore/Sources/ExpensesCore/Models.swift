@@ -85,6 +85,13 @@ public final class Transaction {
     }
 }
 
+public extension Transaction {
+    /// Credit card payments move money between accounts and should not be treated as spending twice.
+    var countsTowardCashFlow: Bool {
+        categoryName != "Card Payment"
+    }
+}
+
 @Model
 public final class Category {
     @Attribute(.unique) public var slug: String

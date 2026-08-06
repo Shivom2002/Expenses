@@ -54,6 +54,7 @@ DETAILED_CATEGORY_MAP = {
     "RENT_AND_UTILITIES_SEWAGE_AND_WASTE_MANAGEMENT": "Utilities",
     "RENT_AND_UTILITIES_TELEPHONE": "Utilities",
     "RENT_AND_UTILITIES_WATER": "Utilities",
+    "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT": "Card Payment",
     "INCOME": "Income",
     "TRANSFER_IN": "Transfers",
     "TRANSFER_OUT": "Transfers",

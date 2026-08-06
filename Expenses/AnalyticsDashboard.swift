@@ -19,7 +19,9 @@ struct AnalyticsDashboard: View {
 
     private var selectedMonthTransactions: [ExpensesCore.Transaction] {
         transactions.filter {
-            calendar.isDate($0.date, equalTo: selectedMonthStart, toGranularity: .month) && !$0.isPending
+            calendar.isDate($0.date, equalTo: selectedMonthStart, toGranularity: .month)
+                && !$0.isPending
+                && $0.countsTowardCashFlow
         }
     }
 
@@ -49,7 +51,12 @@ struct AnalyticsDashboard: View {
         (0 ..< 6).reversed().compactMap { offset in
             guard let date = calendar.date(byAdding: .month, value: -offset, to: selectedMonthStart) else { return nil }
             let total = transactions
-                .filter { calendar.isDate($0.date, equalTo: date, toGranularity: .month) && $0.amount > 0 && !$0.isPending }
+                .filter {
+                    calendar.isDate($0.date, equalTo: date, toGranularity: .month)
+                        && $0.amount > 0
+                        && !$0.isPending
+                        && $0.countsTowardCashFlow
+                }
                 .reduce(0) { $0 + $1.amount }
             return MonthlySpending(date: date, total: total)
         }

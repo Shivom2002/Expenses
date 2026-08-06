@@ -124,6 +124,9 @@ def test_category_mapping_uses_detailed_then_primary_category() -> None:
     assert category_for({"personal_finance_category": {
         "primary": "RENT_AND_UTILITIES", "detailed": "RENT_AND_UTILITIES_RENT",
     }})[0] == "Housing"
+    assert category_for({"personal_finance_category": {
+        "primary": "LOAN_PAYMENTS", "detailed": "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT",
+    }})[0] == "Card Payment"
 
 
 def test_clear_data_removes_synced_sandbox_items(tmp_path: Path) -> None:

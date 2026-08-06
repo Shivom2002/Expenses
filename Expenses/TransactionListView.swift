@@ -38,11 +38,11 @@ enum TransactionFilter: Hashable {
     func matches(_ transaction: ExpensesCore.Transaction) -> Bool {
         switch self {
         case .all, .savings:
-            true
+            self == .all || transaction.countsTowardCashFlow
         case .income:
             transaction.amount < 0
         case .expenses:
-            transaction.amount > 0
+            transaction.amount > 0 && transaction.countsTowardCashFlow
         case let .category(name):
             transaction.categoryName == name
         }
@@ -368,6 +368,7 @@ private enum TransactionCategoryOption: String, CaseIterable, Identifiable {
     case services = "Services"
     case fees = "Fees"
     case loanPayments = "Loan Payments"
+    case cardPayment = "Card Payment"
     case transfers = "Transfers"
     case income = "Income"
     case other = "Other"
