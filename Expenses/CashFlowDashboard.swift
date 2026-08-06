@@ -297,9 +297,14 @@ private struct CashFlowMetric: View {
 }
 
 extension Color {
-    /// The outer dashboard canvas follows the iPhone's active appearance.
-    /// Cards already use SwiftUI's adaptive `.background` color.
-    static let expensesCanvas = Color(uiColor: .systemGroupedBackground)
+    /// Keep a small contrast step between the page canvas and the cards in both
+    /// appearances: warm off-white around white cards, and charcoal around black cards.
+    static let expensesCanvas = Color(uiColor: UIColor { traits in
+        if traits.userInterfaceStyle == .dark {
+            return UIColor(red: 0.055, green: 0.055, blue: 0.065, alpha: 1)
+        }
+        return UIColor(red: 0.96, green: 0.96, blue: 0.95, alpha: 1)
+    })
     static let expensesGreen = Color(red: 0.10, green: 0.52, blue: 0.38)
     static let expensesMint = Color(red: 0.56, green: 0.82, blue: 0.69)
     static let expensesRed = Color(red: 0.84, green: 0.21, blue: 0.25)
