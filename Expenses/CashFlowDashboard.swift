@@ -5,6 +5,7 @@
 
 import Charts
 import SwiftUI
+import UIKit
 import ExpensesCore
 
 struct CashFlowDashboard: View {
@@ -296,7 +297,9 @@ private struct CashFlowMetric: View {
 }
 
 extension Color {
-    static let expensesCanvas = Color(red: 0.96, green: 0.96, blue: 0.95)
+    /// The outer dashboard canvas follows the iPhone's active appearance.
+    /// Cards already use SwiftUI's adaptive `.background` color.
+    static let expensesCanvas = Color(uiColor: .systemGroupedBackground)
     static let expensesGreen = Color(red: 0.10, green: 0.52, blue: 0.38)
     static let expensesMint = Color(red: 0.56, green: 0.82, blue: 0.69)
     static let expensesRed = Color(red: 0.84, green: 0.21, blue: 0.25)
